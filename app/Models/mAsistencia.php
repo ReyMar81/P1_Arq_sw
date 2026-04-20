@@ -4,16 +4,12 @@
 //  Operaciones para marcar asistencia mediante código QR
 // ============================================================
 
-require_once __DIR__ . '/mQR.php';
-
 class mAsistencia {
 
     private $con;
-    private $modelo_qr;
 
     public function __construct() {
         $this->con = Conexion::conectar();
-        $this->modelo_qr = new mQR();
     }
 
     /**

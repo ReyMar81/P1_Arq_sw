@@ -51,6 +51,7 @@ class Auth {
 
             return true;
         } catch (Exception $e) {
+            error_log("Error al identificar docente: " . $e->getMessage());
             $_SESSION['error'] = 'Error al identificar';
             return false;
         }
@@ -75,6 +76,7 @@ class Auth {
 
             return true;
         } catch (Exception $e) {
+            error_log("Error al identificar estudiante: " . $e->getMessage());
             $_SESSION['error'] = 'Error al identificar';
             return false;
         }
