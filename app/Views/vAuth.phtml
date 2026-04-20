@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema de Registro de Asistencia por QR — Identificación">
+    <title>Identificación — AsistenciaQR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary:     #7c3aed;
+            --primary-l:   #8b5cf6;
+            --secondary:   #06b6d4;
+            --bg:          #0f172a;
+            --surface:     #1e293b;
+            --glass:       rgba(255,255,255,.05);
+            --border:      rgba(255,255,255,.09);
+            --text:        #f1f5f9;
+            --muted:       #94a3b8;
+            --error:       #ef4444;
+        }
+
+        *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+
+        body {
+            font-family:'Inter',sans-serif;
+            min-height:100vh;
+            background: var(--bg);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            overflow:hidden;
+            position:relative;
+        }
+
+        /* ── Blobs animados ── */
+        .blob {
+            position:fixed; border-radius:50%;
+            filter:blur(80px); opacity:.28;
+            animation:floatBlob 12s ease-in-out infinite;
+            pointer-events:none;
+        }
+        .blob1 { width:480px; height:480px; background:var(--primary);  top:-120px;  left:-120px; animation-delay:0s; }
+        .blob2 { width:340px; height:340px; background:var(--secondary); bottom:-60px; right:-60px;  animation-delay:-6s; }
+        .blob3 { width:220px; height:220px; background:#ec4899;          top:45%; right:18%;          animation-delay:-3s; }
+
+        @keyframes floatBlob {
+            0%,100% { transform:translate(0,0) scale(1); }
+            33%     { transform:translate(28px,-28px) scale(1.06); }
+            66%     { transform:translate(-18px,18px) scale(.95); }
+        }
+
+        /* ── Contenedor ── */
+        .login-wrap {
+            position:relative; z-index:1;
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            max-width:880px;
+            width:92%;
+            min-height:540px;
+            border-radius:20px;
+            overflow:hidden;
+            border:1px solid var(--border);
+            box-shadow:0 32px 64px rgba(0,0,0,.55);
+        }
+
+        /* ── Lado marca ── */
+        .brand-side {
+            background:linear-gradient(140deg,#3b0764,#1e3a8a);
+            padding:48px;
+            display:flex;
+            flex-direction:column;
+            justify-content:space-between;
+            position:relative;
+            overflow:hidden;
+        }
+        .brand-side::after {
+            content:'';
+            position:absolute; top:-40%; left:-40%;
+            width:180%; height:180%;
+            background:radial-gradient(circle,rgba(167,139,250,.18) 0%,transparent 70%);
+            animation:spin 25s linear infinite;
+        }
+        @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+
+        .brand-logo {
+            display:flex; align-items:center; gap:12px;
+            position:relative; z-index:1;
+        }
+        .brand-icon {
+            width:48px; height:48px;
+            background:rgba(255,255,255,.18);
+            border-radius:14px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:26px;
+        }
+        .brand-name       { font-size:17px; font-weight:700; color:#fff; }
+        .brand-name small  { display:block; font-size:11px; font-weight:400; color:rgba(255,255,255,.55); }
+
+        .brand-body { position:relative; z-index:1; }
+        .brand-title {
+            font-size:30px; font-weight:800; color:#fff;
+            line-height:1.2; margin-bottom:14px;
+        }
+        .brand-desc { font-size:14px; color:rgba(255,255,255,.68); line-height:1.65; margin-bottom:28px; }
+
+        .feat-list { list-style:none; display:flex; flex-direction:column; gap:10px; }
+        .feat-list li {
+            display:flex; align-items:center; gap:10px;
+            font-size:13.5px; color:rgba(255,255,255,.78);
+        }
+        .feat-list li::before {
+            content:''; flex-shrink:0;
+            width:6px; height:6px;
+            background:#a78bfa; border-radius:50%;
+        }
+
+        /* ── Lado formulario ── */
+        .form-side {
+            background:var(--surface);
+            padding:48px;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+        }
+        .form-title    { font-size:25px; font-weight:700; color:var(--text); margin-bottom:6px; }
+        .form-subtitle { font-size:13.5px; color:var(--muted); margin-bottom:28px; }
+
+        /* Alerta */
+        .alert-err {
+            display:flex; align-items:center; gap:8px;
+            padding:11px 14px;
+            background:rgba(239,68,68,.1);
+            border:1px solid rgba(239,68,68,.28);
+            border-radius:10px;
+            color:#fca5a5;
+            font-size:13.5px;
+            margin-bottom:20px;
+            animation:fadeIn .25s ease;
+        }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
+
+        /* Selector de rol */
+        .role-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:22px; }
+        .role-card {
+            background:var(--glass);
+            border:2px solid transparent;
+            border-radius:12px;
+            padding:16px 12px;
+            cursor:pointer;
+            text-align:center;
+            transition:all .2s ease;
+            user-select:none;
+        }
+        .role-card:hover               { background:rgba(124,58,237,.08); border-color:rgba(124,58,237,.35); }
+        .role-card.selected            { background:rgba(124,58,237,.14); border-color:var(--primary); }
+        .role-card input[type="radio"] { display:none; }
+        .role-icon  { font-size:28px; display:block; margin-bottom:8px; line-height:1; }
+        .role-label { font-size:14px; font-weight:600; color:var(--text); }
+        .role-hint  { font-size:11.5px; color:var(--muted); margin-top:4px; line-height:1.4; }
+
+        /* Input */
+        .f-group { margin-bottom:20px; }
+        .f-label {
+            display:block; font-size:11.5px; font-weight:600;
+            text-transform:uppercase; letter-spacing:.06em;
+            color:var(--muted); margin-bottom:8px;
+        }
+        .f-input {
+            width:100%;
+            background:rgba(255,255,255,.04);
+            border:1px solid var(--border);
+            border-radius:10px;
+            padding:13px 15px;
+            font-size:15px; color:var(--text);
+            font-family:'Inter',sans-serif;
+            outline:none; transition:all .2s ease;
+        }
+        .f-input:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(124,58,237,.18); }
+        .f-input::placeholder { color:rgba(148,163,184,.45); }
+
+        /* Botón submit */
+        .btn-submit {
+            width:100%;
+            background:linear-gradient(135deg,var(--primary),var(--primary-l));
+            border:none; border-radius:10px;
+            padding:14px;
+            font-size:15px; font-weight:600; color:#fff;
+            cursor:pointer;
+            font-family:'Inter',sans-serif;
+            letter-spacing:.02em;
+            transition:all .2s ease;
+        }
+        .btn-submit:hover  { transform:translateY(-2px); box-shadow:0 8px 22px rgba(124,58,237,.42); }
+        .btn-submit:active { transform:translateY(0); }
+
+        /* Responsive */
+        @media(max-width:640px) {
+            .login-wrap { grid-template-columns:1fr; }
+            .brand-side { padding:32px; }
+            .brand-title { font-size:22px; }
+            .form-side { padding:32px 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="blob blob1"></div>
+    <div class="blob blob2"></div>
+    <div class="blob blob3"></div>
+
+    <div class="login-wrap">
+
+        <!-- Lado marca -->
+        <div class="brand-side">
+            <div class="brand-logo">
+                <div class="brand-icon">📋</div>
+                <div class="brand-name">
+                    AsistenciaQR
+                    <small>Sistema de Control</small>
+                </div>
+            </div>
+
+            <div class="brand-body">
+                <h1 class="brand-title">Registro de<br>Asistencia<br>por QR</h1>
+                <p class="brand-desc">Gestiona la asistencia de estudiantes de forma rápida y eficiente mediante códigos QR únicos por clase.</p>
+                <ul class="feat-list">
+                    <li>Códigos QR válidos solo en horario de clase</li>
+                    <li>Registro instantáneo de asistencia</li>
+                    <li>Gestión de materias, grupos y clases</li>
+                    <li>Carga masiva de estudiantes vía CSV / Excel</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Formulario de identificación -->
+        <div class="form-side">
+            <h2 class="form-title">Bienvenido</h2>
+            <p class="form-subtitle">Selecciona tu rol e ingresa tu código para continuar</p>
+
+            <?php if (!empty($_SESSION['error'])): ?>
+                <div class="alert-err">
+                    ⚠️ <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+                </div>
+            <?php endif; ?>
+
+            <form method="POST" action="/?page=auth" id="login-form">
+
+                <!-- Selector de rol -->
+                <div class="role-grid">
+                    <label class="role-card" id="card-docente" for="rol-docente">
+                        <input type="radio" name="rol" value="docente" id="rol-docente" required>
+                        <span class="role-icon">👨‍🏫</span>
+                        <span class="role-label">Docente</span>
+                        <p class="role-hint">Materias, grupos y generación de QR</p>
+                    </label>
+                    <label class="role-card" id="card-estudiante" for="rol-estudiante">
+                        <input type="radio" name="rol" value="estudiante" id="rol-estudiante" required>
+                        <span class="role-icon">🎓</span>
+                        <span class="role-label">Estudiante</span>
+                        <p class="role-hint">Escanea QR y registra tu asistencia</p>
+                    </label>
+                </div>
+
+                <div class="f-group">
+                    <label class="f-label" for="identificacion" id="lbl-input">Código / Registro</label>
+                    <input
+                        type="number"
+                        id="identificacion"
+                        name="identificacion"
+                        class="f-input"
+                        placeholder="Ingresa tu código..."
+                        required
+                        autocomplete="off"
+                        min="1"
+                    >
+                </div>
+
+                <button type="submit" class="btn-submit" id="btn-ingresar">Ingresar →</button>
+
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const cards   = document.querySelectorAll('.role-card');
+        const lbl     = document.getElementById('lbl-input');
+        const inp     = document.getElementById('identificacion');
+
+        cards.forEach(card => {
+            card.addEventListener('click', () => {
+                cards.forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                const rol = card.querySelector('input').value;
+                if (rol === 'docente') {
+                    lbl.textContent = 'Código Docente';
+                    inp.placeholder = 'Ej: 1001';
+                } else {
+                    lbl.textContent = 'Registro Estudiantil';
+                    inp.placeholder = 'Ej: 123456';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

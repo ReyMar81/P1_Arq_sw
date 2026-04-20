@@ -1,0 +1,521 @@
+<?php require_once __DIR__ . '/layout/header.phtml'; ?>
+
+<!-- ── Cabecera de página ── -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">🎓 Registrar Estudiantes en Grupo</h1>
+        <p class="page-sub">CU3 — Selecciona un grupo, carga la lista y guarda el registro</p>
+    </div>
+    <?php if ($grupo_actual || !empty($staging)): ?>
+        <a href="/?page=registroEstudiante&accion=limpiar"
+           class="btn btn-ghost btn-md"
+           onclick="return confirm('¿Reiniciar? Se perderá el grupo seleccionado y la lista de estudiantes.')">
+            ↺ Reiniciar
+        </a>
+    <?php endif; ?>
+</div>
+
+<!-- ── Alertas ── -->
+<?php if (!empty($exito)): ?>
+    <div class="alert alert-success">
+        <span class="alert-icon">✅</span>
+        <?php echo htmlspecialchars($exito); ?>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($error)): ?>
+    <div class="alert alert-error">
+        <span class="alert-icon">⚠️</span>
+        <?php echo htmlspecialchars($error); ?>
+    </div>
+<?php endif; ?>
+
+<!-- ══════════════════════════════════════════
+     PASO 1 — Seleccionar Grupo
+═══════════════════════════════════════════ -->
+<div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+        <span class="card-title">
+            <span class="step-badge">1</span> Seleccionar Grupo
+        </span>
+        <?php if ($grupo_actual): ?>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap">
+                <span class="badge-materia"><?php echo htmlspecialchars($grupo_actual['materia_nombre']); ?></span>
+                <strong style="color:var(--text)"><?php echo htmlspecialchars($grupo_actual['nombre']); ?></strong>
+                <?php if (!empty($grupo_actual['ciclo'])): ?>
+                    <span style="color:var(--muted)">· <?php echo htmlspecialchars($grupo_actual['ciclo']); ?></span>
+                <?php endif; ?>
+                <span class="badge-count"><?php echo count($ya_registrados); ?> registrado(s)</span>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if (empty($grupos)): ?>
+        <div class="empty">
+            <span class="empty-icon">📭</span>
+            <p class="empty-title">Sin grupos disponibles</p>
+            <p class="empty-desc">
+                Primero <a href="/?page=grupo" style="color:#a78bfa;text-decoration:underline">crea un grupo</a>
+                para poder registrar estudiantes.
+            </p>
+        </div>
+    <?php else: ?>
+        <div style="padding:20px 24px">
+            <form method="POST"
+                  action="/?page=registroEstudiante&accion=seleccionar_grupo"
+                  style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+                <div style="flex:1;min-width:240px">
+                    <label class="form-label" for="grupo_id">Grupo</label>
+                    <select name="grupo_id" id="grupo_id" class="form-ctrl">
+                        <option value="">— Selecciona un grupo —</option>
+                        <?php foreach ($grupos as $g): ?>
+                            <option value="<?php echo (int)$g['id']; ?>"
+                                <?php echo $grupo_id_actual === (int)$g['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($g['materia_nombre']); ?>
+                                — <?php echo htmlspecialchars($g['nombre']); ?>
+                                <?php if (!empty($g['ciclo'])): ?>
+                                    (<?php echo htmlspecialchars($g['ciclo']); ?>)
+                                <?php endif; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-md">Seleccionar →</button>
+            </form>
+        </div>
+    <?php endif; ?>
+</div>
+
+<?php if ($grupo_actual): ?>
+
+<!-- ══════════════════════════════════════════
+     PASO 2 — Cargar Estudiantes
+═══════════════════════════════════════════ -->
+<div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+        <span class="card-title"><span class="step-badge">2</span> Cargar Estudiantes</span>
+    </div>
+
+    <div class="load-grid">
+
+        <!-- Columna izquierda: CSV -->
+        <div class="load-col">
+            <p class="load-col-title">📂 Desde archivo CSV</p>
+
+            <form method="POST"
+                  action="/?page=registroEstudiante&accion=cargar_csv"
+                  enctype="multipart/form-data">
+
+                <label for="archivo" class="upload-zone" id="upload-label">
+                    <span class="upload-icon">📋</span>
+                    <span class="upload-text">Haz clic para seleccionar CSV</span>
+                    <span class="upload-hint" id="upload-hint">o arrastra aquí el archivo</span>
+                    <input type="file" name="archivo" id="archivo"
+                           accept=".csv" style="display:none"
+                           onchange="actualizarZona(this)">
+                </label>
+
+                <div class="upload-format">
+                    <strong>Formato esperado (con cabecera):</strong><br>
+                    <code>Nombre, Apellido Paterno, Apellido Materno, Registro</code><br>
+                    <span style="font-size:11px;color:var(--faint)">La primera fila se trata como cabecera y se omite.</span>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:14px">
+                    <button type="submit" class="btn btn-primary btn-md" style="flex:1">
+                        ⬆ Cargar CSV
+                    </button>
+                    <a href="/?page=registroEstudiante&accion=descargar_plantilla"
+                       class="btn btn-ghost btn-md" title="Descargar archivo de ejemplo">
+                        ⬇ Plantilla
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Separador visual -->
+        <div class="load-sep"><span>O</span></div>
+
+        <!-- Columna derecha: Manual -->
+        <div class="load-col">
+            <p class="load-col-title">✏️ Agregar manualmente</p>
+
+            <form method="POST" action="/?page=registroEstudiante&accion=agregar_manual">
+
+                <div class="form-group">
+                    <label class="form-label" for="m-nombre">Nombre <span style="color:var(--error)">*</span></label>
+                    <input type="text" id="m-nombre" name="nombre"
+                           class="form-ctrl" placeholder="Juan"
+                           maxlength="100" autocomplete="off" required>
+                </div>
+
+                <div class="man-row">
+                    <div class="form-group" style="flex:1">
+                        <label class="form-label" for="m-ap">
+                            Apellido Paterno <span style="color:var(--error)">*</span>
+                        </label>
+                        <input type="text" id="m-ap" name="apellido_p"
+                               class="form-ctrl" placeholder="Pérez"
+                               maxlength="100" autocomplete="off" required>
+                    </div>
+                    <div class="form-group" style="flex:1">
+                        <label class="form-label" for="m-am">
+                            Apellido Materno
+                            <span style="text-transform:none;font-weight:400;color:var(--faint)">(opc.)</span>
+                        </label>
+                        <input type="text" id="m-am" name="apellido_m"
+                               class="form-ctrl" placeholder="García"
+                               maxlength="100" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="m-reg">
+                        Registro Estudiantil <span style="color:var(--error)">*</span>
+                    </label>
+                    <input type="number" id="m-reg" name="registro_e"
+                           class="form-ctrl" placeholder="Ej: 123456"
+                           min="1" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-md" style="width:100%">
+                    + Agregar a la lista
+                </button>
+            </form>
+        </div>
+
+    </div><!-- /.load-grid -->
+</div>
+
+<?php endif; ?>
+
+<!-- ══════════════════════════════════════════
+     PASO 3 — Lista para registrar (Staging)
+═══════════════════════════════════════════ -->
+<?php if (!empty($staging)): ?>
+<div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+        <span class="card-title">
+            <span class="step-badge">3</span> Lista para registrar
+        </span>
+        <div style="display:flex;align-items:center;gap:10px">
+            <span class="badge-count"><?php echo count($staging); ?> estudiante(s)</span>
+            <a href="/?page=registroEstudiante&accion=limpiar_staging"
+               class="btn btn-ghost btn-sm"
+               onclick="return confirm('¿Limpiar la lista? El grupo seleccionado se mantiene.')">
+                🗑 Limpiar lista
+            </a>
+        </div>
+    </div>
+
+    <div class="tbl-wrap">
+        <table class="data-tbl">
+            <thead>
+                <tr>
+                    <th class="td-num">#</th>
+                    <th>Nombre</th>
+                    <th>Apellido Paterno</th>
+                    <th>Apellido Materno</th>
+                    <th>Registro</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($staging as $idx => $est): ?>
+                <tr>
+                    <td class="td-num"><?php echo $idx + 1; ?></td>
+                    <td style="font-weight:500"><?php echo htmlspecialchars($est['nombre']); ?></td>
+                    <td><?php echo htmlspecialchars($est['apellido_p']); ?></td>
+                    <td style="color:var(--muted)">
+                        <?php echo !empty($est['apellido_m'])
+                            ? htmlspecialchars($est['apellido_m'])
+                            : '<em>—</em>'; ?>
+                    </td>
+                    <td>
+                        <code class="reg-code"><?php echo (int)$est['registro_e']; ?></code>
+                    </td>
+                    <td>
+                        <a href="/?page=registroEstudiante&accion=quitar_staging&idx=<?php echo $idx; ?>"
+                           class="btn btn-danger btn-sm"
+                           onclick="return confirm('¿Quitar a <?php echo htmlspecialchars(addslashes($est['nombre'] . ' ' . $est['apellido_p'])); ?> de la lista?')">
+                            ✕ Quitar
+                        </a>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Footer con botón guardar transaccional -->
+    <div class="save-footer">
+        <div class="save-info">
+            Registrando en:&ensp;
+            <?php if ($grupo_actual): ?>
+                <span class="badge-materia"><?php echo htmlspecialchars($grupo_actual['materia_nombre']); ?></span>
+                &ensp;<strong style="color:var(--text)"><?php echo htmlspecialchars($grupo_actual['nombre']); ?></strong>
+            <?php else: ?>
+                <span style="color:var(--error)">⚠ Sin grupo seleccionado (Paso 1)</span>
+            <?php endif; ?>
+        </div>
+
+        <?php if ($grupo_actual): ?>
+            <form method="POST" action="/?page=registroEstudiante&accion=guardar">
+                <button type="submit" class="btn-save">
+                    💾 Guardar Registro&ensp;
+                    <span style="opacity:.7;font-size:13px">(<?php echo count($staging); ?> estudiante(s))</span>
+                </button>
+            </form>
+        <?php else: ?>
+            <p style="color:var(--error);font-size:13px">Selecciona un grupo primero.</p>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- ══════════════════════════════════════════
+     INFORMACIÓN — Estudiantes ya registrados
+═══════════════════════════════════════════ -->
+<?php if ($grupo_actual): ?>
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">📋 Ya registrados en el grupo</span>
+        <span class="badge-count"><?php echo count($ya_registrados); ?></span>
+    </div>
+
+    <?php if (empty($ya_registrados)): ?>
+        <div class="empty" style="padding:40px 24px">
+            <span class="empty-icon" style="font-size:36px">📭</span>
+            <p class="empty-title">Sin estudiantes aún</p>
+            <p class="empty-desc">Usa el Paso 2 para cargar estudiantes y el Paso 3 para guardarlos.</p>
+        </div>
+    <?php else: ?>
+        <div class="tbl-wrap">
+            <table class="data-tbl">
+                <thead>
+                    <tr>
+                        <th class="td-num">#</th>
+                        <th>Nombre completo</th>
+                        <th>Registro</th>
+                        <th>Fecha de asignación</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($ya_registrados as $i => $reg): ?>
+                    <tr>
+                        <td class="td-num"><?php echo $i + 1; ?></td>
+                        <td style="font-weight:500">
+                            <?php
+                                $nombre_c = $reg['apellido_p'];
+                                if (!empty($reg['apellido_m'])) $nombre_c .= ' ' . $reg['apellido_m'];
+                                $nombre_c .= ', ' . $reg['nombre'];
+                                echo htmlspecialchars($nombre_c);
+                            ?>
+                        </td>
+                        <td>
+                            <code class="reg-code"><?php echo (int)$reg['registro_e']; ?></code>
+                        </td>
+                        <td style="color:var(--muted)">
+                            <?php echo date('d M Y', strtotime($reg['fecha_asignacion'])); ?>
+                        </td>
+                        <td>
+                            <a href="/?page=registroEstudiante&accion=eliminar_registro&id=<?php echo (int)$reg['id']; ?>"
+                               class="btn btn-danger btn-sm"
+                               onclick="return confirm('¿Remover a <?php echo htmlspecialchars(addslashes($reg['nombre'] . ' ' . $reg['apellido_p'])); ?> del grupo? Esta acción no puede deshacerse.')">
+                                🗑 Remover
+                            </a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
+
+<!-- ══════════════════════════════════════════
+     ESTILOS extra para vRegistroEstudiante
+═══════════════════════════════════════════ -->
+<style>
+    /* Número de paso */
+    .step-badge {
+        display: inline-flex;
+        align-items: center; justify-content: center;
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        background: rgba(124,58,237,.2);
+        color: #a78bfa;
+        font-size: 11px; font-weight: 700;
+        margin-right: 8px; flex-shrink: 0;
+    }
+
+    /* Cuadrícula de carga (CSV | Manual) */
+    .load-grid {
+        display: grid;
+        grid-template-columns: 1fr 52px 1fr;
+        align-items: start;
+        padding: 24px;
+        gap: 0;
+    }
+    .load-col { padding: 0 20px; }
+    .load-col:first-child { padding-left: 0; }
+    .load-col:last-child  { padding-right: 0; }
+    .load-col-title {
+        font-size: 14px; font-weight: 600;
+        color: var(--text); margin-bottom: 16px;
+    }
+
+    /* Separador "O" */
+    .load-sep {
+        display: flex; align-items: center; justify-content: center;
+        min-height: 220px; position: relative;
+    }
+    .load-sep::before {
+        content: '';
+        position: absolute; top: 0; left: 50%;
+        width: 1px; height: 100%;
+        background: var(--border);
+    }
+    .load-sep span {
+        position: relative; z-index: 1;
+        background: var(--surface);
+        color: var(--faint);
+        font-size: 11px; font-weight: 600;
+        padding: 6px 2px; letter-spacing: .05em;
+    }
+
+    /* Zona de subida de archivo */
+    .upload-zone {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 6px;
+        border: 2px dashed var(--border);
+        border-radius: var(--r);
+        padding: 28px 16px;
+        cursor: pointer;
+        text-align: center;
+        background: var(--glass);
+        min-height: 120px;
+        transition: all .2s ease;
+    }
+    .upload-zone:hover { border-color: var(--primary); background: rgba(124,58,237,.06); }
+    .upload-zone.activa { border-color: var(--success); background: var(--success-bg); }
+
+    .upload-icon  { font-size: 30px; line-height: 1; }
+    .upload-text  { font-size: 14px; font-weight: 500; color: var(--text); }
+    .upload-hint  { font-size: 12px; color: var(--muted); }
+
+    .upload-format {
+        background: rgba(0,0,0,.2);
+        border-radius: var(--r-sm);
+        padding: 10px 14px;
+        font-size: 12px; color: var(--muted);
+        margin-top: 12px; line-height: 1.8;
+    }
+    .upload-format code { color: #a78bfa; font-size: 11.5px; }
+
+    /* Fila doble en formulario manual */
+    .man-row { display: flex; gap: 12px; }
+
+    /* Footer con save button */
+    .save-footer {
+        display: flex; align-items: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        border-top: 1px solid var(--border);
+        background: rgba(0,0,0,.12);
+        flex-wrap: wrap; gap: 12px;
+    }
+    .save-info {
+        font-size: 13px; color: var(--muted);
+        display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .btn-save {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: linear-gradient(135deg, var(--success), #059669);
+        color: #fff; border: none;
+        border-radius: var(--r-sm);
+        padding: 11px 22px;
+        font-size: 14px; font-weight: 600;
+        cursor: pointer; font-family: 'Inter', sans-serif;
+        letter-spacing: .02em;
+        transition: all .2s ease;
+    }
+    .btn-save:hover  { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(16,185,129,.38); }
+    .btn-save:active { transform: translateY(0); }
+
+    /* Badge materia (cyan) */
+    .badge-materia {
+        display: inline-flex; align-items: center;
+        padding: 3px 10px; border-radius: 100px;
+        font-size: 12px; font-weight: 600;
+        background: rgba(6,182,212,.12); color: #67e8f9;
+        white-space: nowrap;
+    }
+
+    /* Código de registro */
+    .reg-code {
+        display: inline-block;
+        background: rgba(167,139,250,.12);
+        color: #a78bfa;
+        border-radius: 5px;
+        padding: 2px 8px;
+        font-size: 12.5px;
+        font-family: 'Courier New', monospace;
+    }
+
+    /* Responsive */
+    @media(max-width:680px) {
+        .load-grid { grid-template-columns: 1fr; }
+        .load-col  { padding: 0; }
+        .load-sep  { min-height: 36px; }
+        .load-sep::before { width: 80%; height: 1px; top: 50%; left: 10%; }
+        .man-row { flex-direction: column; gap: 0; }
+    }
+</style>
+
+<script>
+    /* ── Zona de carga de archivos ── */
+    function actualizarZona(input) {
+        const hint  = document.getElementById('upload-hint');
+        const label = document.getElementById('upload-label');
+        if (input.files && input.files[0]) {
+            hint.textContent = '✅ ' + input.files[0].name;
+            label.classList.add('activa');
+        } else {
+            hint.textContent = 'o arrastra aquí el archivo';
+            label.classList.remove('activa');
+        }
+    }
+
+    /* Drag & Drop visual feedback */
+    const zona = document.getElementById('upload-label');
+    if (zona) {
+        zona.addEventListener('dragover', e => {
+            e.preventDefault();
+            zona.style.borderColor = 'var(--primary)';
+            zona.style.background  = 'rgba(124,58,237,.08)';
+        });
+        zona.addEventListener('dragleave', () => {
+            zona.style.borderColor = '';
+            zona.style.background  = '';
+        });
+        zona.addEventListener('drop', e => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.toLowerCase().endsWith('.csv')) {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                const input = document.getElementById('archivo');
+                input.files = dt.files;
+                actualizarZona(input);
+            }
+            zona.style.borderColor = '';
+            zona.style.background  = '';
+        });
+    }
+</script>
+
+<?php require_once __DIR__ . '/layout/footer.phtml'; ?>

@@ -1,0 +1,207 @@
+<?php require_once __DIR__ . '/layout/header.phtml'; ?>
+
+<!-- ── Cabecera de página ── -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">📚 Gestión de Materias</h1>
+        <p class="page-sub">CU1 — Crea, edita y elimina las materias que impartes</p>
+    </div>
+    <button class="btn btn-primary btn-md" id="btn-nueva" onclick="openModal('modal-crear')">
+        + Nueva Materia
+    </button>
+</div>
+
+<!-- ── Alertas ── -->
+<?php if (!empty($exito)): ?>
+    <div class="alert alert-success">
+        <span class="alert-icon">✅</span>
+        <?php echo htmlspecialchars($exito); ?>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($error)): ?>
+    <div class="alert alert-error">
+        <span class="alert-icon">⚠️</span>
+        <?php echo htmlspecialchars($error); ?>
+    </div>
+<?php endif; ?>
+
+<!-- ── Tabla de materias ── -->
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Materias registradas</span>
+        <span class="badge-count"><?php echo count($materias); ?> materia<?php echo count($materias) !== 1 ? 's' : ''; ?></span>
+    </div>
+
+    <?php if (empty($materias)): ?>
+        <div class="empty">
+            <span class="empty-icon">📭</span>
+            <p class="empty-title">Sin materias aún</p>
+            <p class="empty-desc">Haz clic en <strong>+ Nueva Materia</strong> para comenzar.</p>
+        </div>
+    <?php else: ?>
+        <div class="tbl-wrap">
+            <table class="data-tbl">
+                <thead>
+                    <tr>
+                        <th class="td-num">#</th>
+                        <th>Nombre</th>
+                        <th>Fecha de registro</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($materias as $i => $mat): ?>
+                    <tr>
+                        <td class="td-num"><?php echo $i + 1; ?></td>
+                        <td><?php echo htmlspecialchars($mat['nombre']); ?></td>
+                        <td style="color:var(--muted)">
+                            <?php
+                                $fecha = $mat['fecha_creacion'] ?? null;
+                                echo $fecha
+                                    ? date('d M Y', strtotime($fecha))
+                                    : '—';
+                            ?>
+                        </td>
+                        <td>
+                            <div class="td-actions">
+                                <button
+                                    class="btn btn-ghost btn-sm"
+                                    onclick="openEditModal(
+                                        <?php echo (int)$mat['id']; ?>,
+                                        '<?php echo htmlspecialchars(addslashes($mat['nombre'])); ?>'
+                                    )"
+                                    title="Editar materia"
+                                >
+                                    ✏️ Editar
+                                </button>
+                                <a
+                                    href="/?page=materia&accion=eliminar&id=<?php echo (int)$mat['id']; ?>"
+                                    class="btn btn-danger btn-sm"
+                                    onclick="return confirm('¿Eliminar la materia \"<?php echo htmlspecialchars(addslashes($mat['nombre'])); ?>\"?\nEsta acción no se puede deshacer.')"
+                                    title="Eliminar materia"
+                                >
+                                    🗑 Eliminar
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL — Crear Materia
+═══════════════════════════════════════════ -->
+<div class="overlay" id="modal-crear">
+    <div class="modal" role="dialog" aria-labelledby="titulo-crear" aria-modal="true">
+        <h2 class="modal-title" id="titulo-crear">➕ Nueva Materia</h2>
+
+        <form method="POST" action="/?page=materia&accion=crear" id="form-crear">
+            <div class="form-group">
+                <label class="form-label" for="crear-nombre">Nombre de la materia</label>
+                <input
+                    type="text"
+                    id="crear-nombre"
+                    name="nombre"
+                    class="form-ctrl"
+                    placeholder="Ej: Arquitectura de Software"
+                    required
+                    maxlength="100"
+                    autocomplete="off"
+                >
+            </div>
+
+            <div class="modal-foot">
+                <button type="button" class="btn btn-ghost btn-md" onclick="closeModal('modal-crear')">Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-md">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL — Editar Materia
+═══════════════════════════════════════════ -->
+<div class="overlay" id="modal-editar">
+    <div class="modal" role="dialog" aria-labelledby="titulo-editar" aria-modal="true">
+        <h2 class="modal-title" id="titulo-editar">✏️ Editar Materia</h2>
+
+        <form method="POST" action="/?page=materia&accion=editar" id="form-editar">
+            <input type="hidden" name="id" id="edit-id">
+
+            <div class="form-group">
+                <label class="form-label" for="edit-nombre">Nombre de la materia</label>
+                <input
+                    type="text"
+                    id="edit-nombre"
+                    name="nombre"
+                    class="form-ctrl"
+                    placeholder="Nombre de la materia"
+                    required
+                    maxlength="100"
+                    autocomplete="off"
+                >
+            </div>
+
+            <div class="modal-foot">
+                <button type="button" class="btn btn-ghost btn-md" onclick="closeModal('modal-editar')">Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-md">Actualizar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    /* ── Gestión de modales ── */
+    function openModal(id) {
+        document.getElementById(id).classList.add('open');
+        const firstInput = document.querySelector('#' + id + ' input[type="text"]');
+        if (firstInput) setTimeout(() => firstInput.focus(), 50);
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('open');
+    }
+
+    // Cerrar overlay al hacer clic fuera del modal
+    document.querySelectorAll('.overlay').forEach(ov => {
+        ov.addEventListener('click', e => {
+            if (e.target === ov) closeModal(ov.id);
+        });
+    });
+
+    // Cerrar con tecla Escape
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.overlay.open').forEach(ov => {
+                closeModal(ov.id);
+            });
+        }
+    });
+
+    /* ── Abrir modal de edición precargado ── */
+    function openEditModal(id, nombre) {
+        document.getElementById('edit-id').value    = id;
+        document.getElementById('edit-nombre').value = nombre;
+        openModal('modal-editar');
+    }
+
+    /* Si hubo error en crear/editar, reabrir el modal correspondiente */
+    <?php if (!empty($error) && isset($_POST['nombre'])): ?>
+        <?php if ($accion === 'crear'): ?>
+            window.addEventListener('DOMContentLoaded', () => openModal('modal-crear'));
+            document.getElementById('crear-nombre').value = '<?php echo htmlspecialchars(addslashes($_POST['nombre'] ?? '')); ?>';
+        <?php elseif ($accion === 'editar'): ?>
+            window.addEventListener('DOMContentLoaded', () => openEditModal(
+                <?php echo (int)($_POST['id'] ?? 0); ?>,
+                '<?php echo htmlspecialchars(addslashes($_POST['nombre'] ?? '')); ?>'
+            ));
+        <?php endif; ?>
+    <?php endif; ?>
+</script>
+
+<?php require_once __DIR__ . '/layout/footer.phtml'; ?>

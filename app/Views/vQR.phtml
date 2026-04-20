@@ -1,0 +1,293 @@
+<?php require_once __DIR__ . '/layout/header.phtml'; ?>
+
+<!-- ── Cabecera de página ── -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">📱 Generar Código QR</h1>
+        <p class="page-sub">CU5 — Crea códigos QR para marcar asistencia en tus clases</p>
+    </div>
+</div>
+
+<!-- ── Alertas ── -->
+<?php if (!empty($exito)): ?>
+    <div class="alert alert-success">
+        <span class="alert-icon">✅</span>
+        <?php echo htmlspecialchars($exito); ?>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($error)): ?>
+    <div class="alert alert-error">
+        <span class="alert-icon">⚠️</span>
+        <?php echo htmlspecialchars($error); ?>
+    </div>
+<?php endif; ?>
+
+<!-- ── Tabla de clases ── -->
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Mis Clases</span>
+        <span class="badge-count"><?php echo count($clases); ?> clase<?php echo count($clases) !== 1 ? 's' : ''; ?></span>
+    </div>
+
+    <?php if (empty($clases)): ?>
+        <div class="empty">
+            <span class="empty-icon">📭</span>
+            <p class="empty-title">Sin clases aún</p>
+            <p class="empty-desc">
+                Primero <a href="/?page=clase" style="color:#a78bfa;text-decoration:underline">crea una clase</a>
+                para poder generar códigos QR.
+            </p>
+        </div>
+    <?php else: ?>
+        <div class="tbl-wrap">
+            <table class="data-tbl">
+                <thead>
+                    <tr>
+                        <th class="td-num">#</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Grupo</th>
+                        <th>Materia</th>
+                        <th>Estado QR</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($clases as $i => $c): ?>
+                    <tr>
+                        <td class="td-num"><?php echo $i + 1; ?></td>
+                        <td style="font-weight:500">
+                            <?php
+                                $fecha = $c['fecha'] ?? null;
+                                echo $fecha ? date('d M Y', strtotime($fecha)) : '—';
+                            ?>
+                        </td>
+                        <td style="color:var(--muted)">
+                            <?php echo htmlspecialchars($c['hora_inicio'] ?? '—'); ?> - <?php echo htmlspecialchars($c['hora_fin'] ?? '—'); ?>
+                        </td>
+                        <td style="font-weight:500">
+                            <?php echo htmlspecialchars($c['grupo_nombre']); ?>
+                        </td>
+                        <td>
+                            <span class="badge-materia">
+                                <?php echo htmlspecialchars($c['materia_nombre']); ?>
+                            </span>
+                        </td>
+                        <td>
+                            <?php if ($c['qr_token'] && $c['qr_estado'] === 'vigente'): ?>
+                                <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:4px;background:rgba(34,197,94,0.15);color:#22c55e;font-size:12px;font-weight:600">
+                                    ✓ Vigente
+                                </span>
+                            <?php elseif ($c['qr_token'] && $c['qr_estado'] === 'expirado'): ?>
+                                <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:4px;background:rgba(168,85,247,0.15);color:#a855f7;font-size:12px;font-weight:600">
+                                    ⏱ Expirado
+                                </span>
+                            <?php else: ?>
+                                <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:4px;background:rgba(107,114,128,0.15);color:#6b7280;font-size:12px;font-weight:600">
+                                    — Sin QR
+                                </span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <div class="td-actions">
+                                <form method="POST" action="/?page=qr&accion=generar_qr" style="display:inline">
+                                    <input type="hidden" name="clase_id" value="<?php echo (int)$c['id']; ?>">
+                                    <button
+                                        type="submit"
+                                        class="btn btn-primary btn-sm"
+                                        title="Generar nuevo código QR (invalida el anterior)"
+                                    >
+                                        🔄 Generar QR
+                                    </button>
+                                </form>
+
+                                <?php if ($c['qr_token'] && $c['qr_estado'] === 'vigente'): ?>
+                                    <button
+                                        class="btn btn-ghost btn-sm"
+                                        onclick="openQRModal(<?php echo (int)$c['id']; ?>, '<?php echo htmlspecialchars($c['fecha']); ?> <?php echo htmlspecialchars($c['hora_inicio']); ?>')"
+                                        title="Ver código QR"
+                                    >
+                                        👁️ Mostrar QR
+                                    </button>
+                                <?php else: ?>
+                                    <button
+                                        class="btn btn-ghost btn-sm"
+                                        disabled
+                                        title="Genera un QR primero"
+                                    >
+                                        👁️ Mostrar QR
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL — Mostrar Código QR (Grande)
+═══════════════════════════════════════════ -->
+<div class="overlay" id="modal-qr">
+    <div class="modal" role="dialog" aria-labelledby="titulo-qr" aria-modal="true" style="max-width:500px">
+        <h2 class="modal-title" id="titulo-qr">📱 Código QR</h2>
+
+        <div style="text-align:center;padding:20px">
+            <p id="qr-fecha" style="color:var(--muted);font-size:13px;margin-bottom:20px">—</p>
+
+            <!-- Contenedor para la imagen QR -->
+            <div id="qr-container" style="display:flex;justify-content:center;align-items:center;min-height:320px;background:white;border-radius:8px;border:2px solid #e5e7eb">
+                <div style="text-align:center;color:var(--muted)">
+                    <span style="font-size:48px">⏳</span>
+                    <p>Generando código QR...</p>
+                </div>
+            </div>
+
+            <p id="qr-token" style="color:var(--muted);font-size:12px;margin-top:12px;word-break:break-all;font-family:monospace">
+                Token: —
+            </p>
+
+            <div style="margin-top:20px;padding-top:20px;border-top:1px solid #e5e7eb">
+                <p style="color:var(--muted);font-size:13px;margin-bottom:12px">
+                    ℹ️ Los estudiantes escanean este código para marcar asistencia
+                </p>
+                <button
+                    type="button"
+                    class="btn btn-primary btn-md"
+                    onclick="downloadQR()"
+                    title="Descargar QR como imagen"
+                    id="btn-descargar"
+                >
+                    ⬇️ Descargar QR
+                </button>
+            </div>
+        </div>
+
+        <div class="modal-foot">
+            <button type="button" class="btn btn-ghost btn-md" onclick="closeModal('modal-qr')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ESTILOS extra para vQR
+═══════════════════════════════════════════ -->
+<style>
+    .badge-materia {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px;
+        border-radius: 100px;
+        font-size: 12px;
+        font-weight: 600;
+        background: rgba(6, 182, 212, 0.12);
+        color: #67e8f9;
+        white-space: nowrap;
+    }
+
+    #qr-container canvas {
+        max-width: 280px;
+        max-height: 280px;
+    }
+
+    #qr-container img {
+        max-width: 280px;
+        max-height: 280px;
+    }
+</style>
+
+<!-- Script: Librería QR Code (cdnjs) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+    let currentQRToken = null;
+    let currentClaseId = null;
+
+    /* ── Gestión de modales ── */
+    function openModal(id) {
+        document.getElementById(id).classList.add('open');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('open');
+    }
+
+    document.querySelectorAll('.overlay').forEach(ov => {
+        ov.addEventListener('click', e => {
+            if (e.target === ov) closeModal(ov.id);
+        });
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.overlay.open').forEach(ov => closeModal(ov.id));
+        }
+    });
+
+    /* ── Obtener y mostrar QR ── */
+    function openQRModal(claseId, fechaHora) {
+        currentClaseId = claseId;
+        openModal('modal-qr');
+
+        document.getElementById('qr-fecha').textContent = 'Clase: ' + fechaHora;
+        document.getElementById('qr-container').innerHTML = '<div style="text-align:center;color:var(--muted)"><span style="font-size:48px">⏳</span><p>Generando código QR...</p></div>';
+        document.getElementById('qr-token').textContent = 'Token: —';
+
+        // Fetch QR via AJAX
+        const formData = new FormData();
+        formData.append('clase_id', claseId);
+
+        fetch('/?page=qr&accion=obtener_qr_json', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.qr_token) {
+                currentQRToken = data.qr_token;
+                renderQR(data.qr_token);
+                document.getElementById('qr-token').textContent = 'Token: ' + data.qr_token;
+            } else {
+                document.getElementById('qr-container').innerHTML = '<div style="text-align:center;color:var(--error)"><span style="font-size:48px">❌</span><p>' + (data.error || 'Error al obtener QR') + '</p></div>';
+            }
+        })
+        .catch(err => {
+            document.getElementById('qr-container').innerHTML = '<div style="text-align:center;color:var(--error)"><span style="font-size:48px">❌</span><p>Error: ' + err.message + '</p></div>';
+        });
+    }
+
+    /* ── Renderizar QR ── */
+    function renderQR(token) {
+        document.getElementById('qr-container').innerHTML = '';
+
+        // Generar URL que apunta al endpoint de asistencia
+        const qrUrl = window.location.origin + '/?page=asistencia&clase_id=' + currentClaseId + '&qr_token=' + token;
+
+        // Generar código QR usando la librería
+        new QRCode(document.getElementById('qr-container'), {
+            text: qrUrl,
+            width: 280,
+            height: 280,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    }
+
+    /* ── Descargar QR como imagen ── */
+    function downloadQR() {
+        const canvas = document.querySelector('#qr-container canvas');
+        if (!canvas) return;
+
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = 'qr_clase_' + currentClaseId + '.png';
+        link.click();
+    }
+</script>
+
+<?php require_once __DIR__ . '/layout/footer.phtml'; ?>

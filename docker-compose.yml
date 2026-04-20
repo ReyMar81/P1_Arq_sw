@@ -1,0 +1,57 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app_asistencia
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+    environment:
+      - DB_HOST=bd_asistencia
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME}
+    depends_on:
+      - mysql
+    networks:
+      - red_asistencia
+
+  mysql:
+    image: mysql:8.0
+    container_name: bd_asistencia
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASS}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASS}
+    volumes:
+      - datos_bd:/var/lib/mysql
+      - ./sql/script.sql:/docker-entrypoint-initdb.d/01_script.sql
+      - ./sql/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    networks:
+      - red_asistencia
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    ports:
+      - "8001:80"
+    environment:
+      - PMA_HOST=bd_asistencia
+      - PMA_USER=${DB_USER}
+      - PMA_PASSWORD=${DB_PASS}
+    depends_on:
+      - mysql
+    networks:
+      - red_asistencia
+
+volumes:
+  datos_bd:
+
+networks:
+  red_asistencia:
+    driver: bridge

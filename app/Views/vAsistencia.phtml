@@ -1,0 +1,206 @@
+<?php require_once __DIR__ . '/layout/header.phtml'; ?>
+
+<!-- ── Cabecera de página ── -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">📱 Marcar Asistencia</h1>
+        <p class="page-sub">CU6 — Escanea el código QR y registra tu asistencia</p>
+    </div>
+</div>
+
+<!-- ── Alertas ── -->
+<?php if (!empty($exito)): ?>
+    <div class="alert alert-success">
+        <span class="alert-icon">✅</span>
+        <?php echo htmlspecialchars($exito); ?>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($error)): ?>
+    <div class="alert alert-error">
+        <span class="alert-icon">⚠️</span>
+        <?php echo htmlspecialchars($error); ?>
+    </div>
+<?php endif; ?>
+
+<!-- ══════════════════════════════════════════
+     CASO 1: Asistencia registrada exitosamente
+═══════════════════════════════════════════ -->
+<?php if ($asistencia_registrada && $estudiante_datos && $clase_datos): ?>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">✓ Asistencia Confirmada</span>
+    </div>
+
+    <div style="padding:40px 24px;text-align:center">
+        <div style="font-size:64px;margin-bottom:20px">✅</div>
+
+        <div style="margin-bottom:32px">
+            <h3 style="font-size:20px;margin:0 0 8px 0;color:var(--text)">
+                Bienvenido, <?php echo htmlspecialchars($estudiante_datos['nombre']); ?>!
+            </h3>
+            <p style="margin:0;color:var(--muted);font-size:14px">
+                Tu asistencia ha sido registrada
+            </p>
+        </div>
+
+        <div style="background:rgba(34,197,94,0.08);border-radius:8px;padding:24px;margin-bottom:24px;text-align:left">
+            <div style="margin-bottom:16px">
+                <p style="margin:0;color:var(--muted);font-size:12px;text-transform:uppercase">Clase</p>
+                <p style="margin:4px 0 0 0;font-weight:600;color:var(--text)">
+                    <?php echo htmlspecialchars($clase_datos['materia_nombre']); ?> — <?php echo htmlspecialchars($clase_datos['grupo_nombre']); ?>
+                </p>
+            </div>
+            <div style="margin-bottom:16px">
+                <p style="margin:0;color:var(--muted);font-size:12px;text-transform:uppercase">Fecha y Hora</p>
+                <p style="margin:4px 0 0 0;font-weight:600;color:var(--text)">
+                    <?php echo date('d M Y \a \l\a\s H:i', strtotime($clase_datos['fecha'] . ' ' . $clase_datos['hora_inicio'])); ?>
+                </p>
+            </div>
+            <div>
+                <p style="margin:0;color:var(--muted);font-size:12px;text-transform:uppercase">Registrado a las</p>
+                <p style="margin:4px 0 0 0;font-weight:600;color:var(--text)">
+                    <?php echo date('H:i:s'); ?>
+                </p>
+            </div>
+        </div>
+
+        <p style="color:var(--muted);font-size:13px;margin:0">
+            Puedes cerrar esta ventana o <a href="/?page=asistencia" style="color:#a78bfa;text-decoration:underline">marcar otra asistencia</a>
+        </p>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     CASO 2: QR válido - Mostrar formulario
+═══════════════════════════════════════════ -->
+<?php elseif ($clase_datos && $clase_id > 0 && !empty($qr_token)): ?>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Formulario de Asistencia</span>
+    </div>
+
+    <div style="padding:40px 24px;max-width:400px;margin:0 auto">
+        <div style="margin-bottom:32px;text-align:center">
+            <div style="display:inline-block;padding:12px 16px;border-radius:8px;background:rgba(139,92,246,0.12)">
+                <p style="margin:0;color:#a78bfa;font-size:12px;text-transform:uppercase;font-weight:600">
+                    Clase a Registrar
+                </p>
+                <p style="margin:8px 0 0 0;font-size:16px;font-weight:600;color:var(--text)">
+                    <?php echo htmlspecialchars($clase_datos['materia_nombre']); ?>
+                </p>
+                <p style="margin:4px 0 0 0;color:var(--muted);font-size:13px">
+                    Grupo: <?php echo htmlspecialchars($clase_datos['grupo_nombre']); ?>
+                </p>
+            </div>
+        </div>
+
+        <form method="POST" action="/?page=asistencia&accion=marcar_asistencia&clase_id=<?php echo (int)$clase_id; ?>&qr_token=<?php echo htmlspecialchars($qr_token); ?>" id="form-asistencia">
+
+            <div class="form-group">
+                <label class="form-label" for="registro_e">
+                    Número de Registro <span style="color:var(--error)">*</span>
+                </label>
+                <input
+                    type="text"
+                    id="registro_e"
+                    name="registro_e"
+                    class="form-ctrl"
+                    placeholder="Ej: 210000001"
+                    required
+                    autocomplete="off"
+                    maxlength="50"
+                    autofocus
+                >
+                <p style="margin:8px 0 0 0;color:var(--muted);font-size:12px">
+                    Ingresa tu número de registro de estudiante
+                </p>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-top:24px">
+                <button type="button" class="btn btn-ghost btn-md" onclick="window.history.back()" style="flex:1">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary btn-md" style="flex:1">
+                    Marcar Asistencia
+                </button>
+            </div>
+        </form>
+
+        <div style="margin-top:24px;padding:12px 16px;border-radius:8px;background:rgba(29,185,84,0.08);border:1px solid rgba(34,197,94,0.2)">
+            <p style="margin:0;color:var(--muted);font-size:12px">
+                <strong>💡 Tip:</strong> Asegúrate de que tu número de registro sea correcto. Si tienes problemas, contacta con tu docente.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     CASO 3: Sin QR o QR inválido
+═══════════════════════════════════════════ -->
+<?php else: ?>
+
+<div class="card">
+    <div class="empty">
+        <span class="empty-icon">📱</span>
+        <p class="empty-title">Escanea el código QR</p>
+        <p class="empty-desc">
+            Abre este formulario escaneando el código QR que te comparta tu docente para marcar tu asistencia.
+        </p>
+    </div>
+</div>
+
+<div style="max-width:400px;margin:20px auto">
+    <div style="padding:20px;border-radius:8px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2)">
+        <p style="margin:0;color:var(--muted);font-size:13px">
+            <strong>📖 Instrucciones:</strong>
+        </p>
+        <ol style="margin:12px 0 0 0;color:var(--muted);font-size:13px;padding-left:20px">
+            <li>Tu docente genera un código QR en la sección "Generar Código QR"</li>
+            <li>Abre la cámara de tu dispositivo y escanea el código</li>
+            <li>Se abrirá este formulario automáticamente</li>
+            <li>Ingresa tu número de registro y confirma</li>
+        </ol>
+    </div>
+</div>
+
+<?php endif; ?>
+
+<!-- ══════════════════════════════════════════
+     ESTILOS extra para vAsistencia
+═══════════════════════════════════════════ -->
+<style>
+    .form-ctrl {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: inherit;
+        background: var(--input-bg);
+        color: var(--text);
+        transition: border-color 0.2s;
+    }
+
+    .form-ctrl:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+    }
+</style>
+
+<?php require_once __DIR__ . '/layout/footer.phtml'; ?>

@@ -1,0 +1,356 @@
+<?php require_once __DIR__ . '/layout/header.phtml'; ?>
+
+<!-- ── Cabecera de página ── -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">📅 Gestión de Clases</h1>
+        <p class="page-sub">CU4 — Crea, edita y elimina clases del grupo seleccionado</p>
+    </div>
+
+    <?php if ($grupo_actual): ?>
+        <button class="btn btn-primary btn-md" id="btn-nueva-clase" onclick="openModal('modal-crear')">
+            + Nueva Clase
+        </button>
+    <?php endif; ?>
+</div>
+
+<!-- ── Alertas ── -->
+<?php if (!empty($exito)): ?>
+    <div class="alert alert-success">
+        <span class="alert-icon">✅</span>
+        <?php echo htmlspecialchars($exito); ?>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($error)): ?>
+    <div class="alert alert-error">
+        <span class="alert-icon">⚠️</span>
+        <?php echo htmlspecialchars($error); ?>
+    </div>
+<?php endif; ?>
+
+<!-- ══════════════════════════════════════════
+     PASO 1 — Seleccionar Grupo
+═══════════════════════════════════════════ -->
+<div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+        <span class="card-title">
+            <span class="step-badge">1</span> Seleccionar Grupo
+        </span>
+        <?php if ($grupo_actual): ?>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap">
+                <span class="badge-materia"><?php echo htmlspecialchars($grupo_actual['materia_nombre']); ?></span>
+                <strong style="color:var(--text)"><?php echo htmlspecialchars($grupo_actual['nombre']); ?></strong>
+                <?php if (!empty($grupo_actual['ciclo'])): ?>
+                    <span style="color:var(--muted)">· <?php echo htmlspecialchars($grupo_actual['ciclo']); ?></span>
+                <?php endif; ?>
+                <span class="badge-count"><?php echo count($clases); ?> clase(s)</span>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if (empty($grupos)): ?>
+        <div class="empty">
+            <span class="empty-icon">📭</span>
+            <p class="empty-title">Sin grupos disponibles</p>
+            <p class="empty-desc">
+                Primero <a href="/?page=grupo" style="color:#a78bfa;text-decoration:underline">crea un grupo</a>
+                para poder crear clases.
+            </p>
+        </div>
+    <?php else: ?>
+        <div style="padding:20px 24px">
+            <form method="POST"
+                  action="/?page=clase&accion=seleccionar_grupo"
+                  style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+                <div style="flex:1;min-width:240px">
+                    <label class="form-label" for="grupo_id">Grupo</label>
+                    <select name="grupo_id" id="grupo_id" class="form-ctrl" onchange="this.form.submit()">
+                        <option value="">— Selecciona un grupo —</option>
+                        <?php foreach ($grupos as $g): ?>
+                            <option value="<?php echo (int)$g['id']; ?>"
+                                <?php echo $grupo_id_actual === (int)$g['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($g['materia_nombre']); ?>
+                                — <?php echo htmlspecialchars($g['nombre']); ?>
+                                <?php if (!empty($g['ciclo'])): ?>
+                                    (<?php echo htmlspecialchars($g['ciclo']); ?>)
+                                <?php endif; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </form>
+        </div>
+    <?php endif; ?>
+</div>
+
+<?php if ($grupo_actual): ?>
+
+<!-- ══════════════════════════════════════════
+     PASO 2 — Tabla de Clases
+═══════════════════════════════════════════ -->
+<div class="card">
+    <div class="card-header">
+        <span class="card-title"><span class="step-badge">2</span> Clases del Grupo</span>
+        <span class="badge-count"><?php echo count($clases); ?> clase<?php echo count($clases) !== 1 ? 's' : ''; ?></span>
+    </div>
+
+    <?php if (empty($clases)): ?>
+        <div class="empty">
+            <span class="empty-icon">📭</span>
+            <p class="empty-title">Sin clases aún</p>
+            <p class="empty-desc">
+                Haz clic en <strong>+ Nueva Clase</strong> para agregar tu primera clase.
+            </p>
+        </div>
+    <?php else: ?>
+        <div class="tbl-wrap">
+            <table class="data-tbl">
+                <thead>
+                    <tr>
+                        <th class="td-num">#</th>
+                        <th>Fecha</th>
+                        <th>Hora Inicio</th>
+                        <th>Hora Fin</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($clases as $i => $c): ?>
+                    <tr>
+                        <td class="td-num"><?php echo $i + 1; ?></td>
+                        <td style="font-weight:500">
+                            <?php
+                                $fecha = $c['fecha'] ?? null;
+                                echo $fecha ? date('d M Y', strtotime($fecha)) : '—';
+                            ?>
+                        </td>
+                        <td style="color:var(--muted)">
+                            <?php echo htmlspecialchars($c['hora_inicio'] ?? '—'); ?>
+                        </td>
+                        <td style="color:var(--muted)">
+                            <?php echo htmlspecialchars($c['hora_fin'] ?? '—'); ?>
+                        </td>
+                        <td>
+                            <div class="td-actions">
+                                <button
+                                    class="btn btn-ghost btn-sm"
+                                    onclick="openEditModal(
+                                        <?php echo (int)$c['id']; ?>,
+                                        '<?php echo htmlspecialchars(addslashes($c['fecha'])); ?>',
+                                        '<?php echo htmlspecialchars(addslashes($c['hora_inicio'])); ?>',
+                                        '<?php echo htmlspecialchars(addslashes($c['hora_fin'])); ?>'
+                                    )"
+                                    title="Editar clase"
+                                >
+                                    ✏️ Editar
+                                </button>
+                                <a
+                                    href="/?page=clase&accion=eliminar&id=<?php echo (int)$c['id']; ?>"
+                                    class="btn btn-danger btn-sm"
+                                    onclick="return confirm('¿Eliminar la clase del <?php echo htmlspecialchars(addslashes(date('d M Y', strtotime($c['fecha'])))); ?>?')"
+                                    title="Eliminar clase"
+                                >
+                                    🗑 Eliminar
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+
+<?php endif; ?>
+
+<!-- ══════════════════════════════════════════
+     MODAL — Crear Clase
+═══════════════════════════════════════════ -->
+<div class="overlay" id="modal-crear">
+    <div class="modal" role="dialog" aria-labelledby="titulo-crear" aria-modal="true">
+        <h2 class="modal-title" id="titulo-crear">➕ Nueva Clase</h2>
+
+        <form method="POST" action="/?page=clase&accion=crear" id="form-crear">
+            <input type="hidden" name="grupo_id" value="<?php echo (int)$grupo_id_actual; ?>">
+
+            <div class="form-group">
+                <label class="form-label" for="crear-fecha">Fecha <span style="color:var(--error)">*</span></label>
+                <input
+                    type="date"
+                    id="crear-fecha"
+                    name="fecha"
+                    class="form-ctrl"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="crear-hora-inicio">Hora Inicio <span style="color:var(--error)">*</span></label>
+                <input
+                    type="time"
+                    id="crear-hora-inicio"
+                    name="hora_inicio"
+                    class="form-ctrl"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="crear-hora-fin">Hora Fin <span style="color:var(--error)">*</span></label>
+                <input
+                    type="time"
+                    id="crear-hora-fin"
+                    name="hora_fin"
+                    class="form-ctrl"
+                    required
+                >
+            </div>
+
+            <div class="modal-foot">
+                <button type="button" class="btn btn-ghost btn-md" onclick="closeModal('modal-crear')">Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-md">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL — Editar Clase
+═══════════════════════════════════════════ -->
+<div class="overlay" id="modal-editar">
+    <div class="modal" role="dialog" aria-labelledby="titulo-editar" aria-modal="true">
+        <h2 class="modal-title" id="titulo-editar">✏️ Editar Clase</h2>
+
+        <form method="POST" action="/?page=clase&accion=editar" id="form-editar">
+            <input type="hidden" name="id" id="edit-id">
+
+            <div class="form-group">
+                <label class="form-label" for="edit-fecha">Fecha <span style="color:var(--error)">*</span></label>
+                <input
+                    type="date"
+                    id="edit-fecha"
+                    name="fecha"
+                    class="form-ctrl"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="edit-hora-inicio">Hora Inicio <span style="color:var(--error)">*</span></label>
+                <input
+                    type="time"
+                    id="edit-hora-inicio"
+                    name="hora_inicio"
+                    class="form-ctrl"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="edit-hora-fin">Hora Fin <span style="color:var(--error)">*</span></label>
+                <input
+                    type="time"
+                    id="edit-hora-fin"
+                    name="hora_fin"
+                    class="form-ctrl"
+                    required
+                >
+            </div>
+
+            <div class="modal-foot">
+                <button type="button" class="btn btn-ghost btn-md" onclick="closeModal('modal-editar')">Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-md">Actualizar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ESTILOS extra para vClase
+═══════════════════════════════════════════ -->
+<style>
+    .badge-materia {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px;
+        border-radius: 100px;
+        font-size: 12px;
+        font-weight: 600;
+        background: rgba(6, 182, 212, 0.12);
+        color: #67e8f9;
+        white-space: nowrap;
+    }
+
+    .step-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: rgba(139, 92, 246, 0.2);
+        color: #a78bfa;
+        font-size: 12px;
+        font-weight: 600;
+        margin-right: 6px;
+    }
+</style>
+
+<script>
+    /* ── Gestión de modales (misma lógica que vGrupo) ── */
+    function openModal(id) {
+        document.getElementById(id).classList.add('open');
+        const firstInput = document.querySelector('#' + id + ' input[type="date"], #' + id + ' input[type="time"], #' + id + ' input[type="text"], #' + id + ' select');
+        if (firstInput) setTimeout(() => firstInput.focus(), 50);
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('open');
+    }
+
+    document.querySelectorAll('.overlay').forEach(ov => {
+        ov.addEventListener('click', e => {
+            if (e.target === ov) closeModal(ov.id);
+        });
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.overlay.open').forEach(ov => closeModal(ov.id));
+        }
+    });
+
+    /* ── Abrir modal de edición pre-cargado ── */
+    function openEditModal(id, fecha, horaInicio, horaFin) {
+        document.getElementById('edit-id').value           = id;
+        document.getElementById('edit-fecha').value        = fecha;
+        document.getElementById('edit-hora-inicio').value  = horaInicio;
+        document.getElementById('edit-hora-fin').value     = horaFin;
+        openModal('modal-editar');
+    }
+
+    /* ── Re-abrir modal si hubo error en crear/editar ── */
+    <?php if (!empty($error) && isset($_POST['fecha'])): ?>
+        <?php if ($accion === 'crear'): ?>
+            window.addEventListener('DOMContentLoaded', () => {
+                openModal('modal-crear');
+                document.getElementById('crear-fecha').value        = '<?php echo htmlspecialchars(addslashes($_POST['fecha'] ?? '')); ?>';
+                document.getElementById('crear-hora-inicio').value  = '<?php echo htmlspecialchars(addslashes($_POST['hora_inicio'] ?? '')); ?>';
+                document.getElementById('crear-hora-fin').value     = '<?php echo htmlspecialchars(addslashes($_POST['hora_fin'] ?? '')); ?>';
+            });
+        <?php elseif ($accion === 'editar'): ?>
+            window.addEventListener('DOMContentLoaded', () => {
+                openEditModal(
+                    <?php echo (int)($_POST['id'] ?? 0); ?>,
+                    '<?php echo htmlspecialchars(addslashes($_POST['fecha'] ?? '')); ?>',
+                    '<?php echo htmlspecialchars(addslashes($_POST['hora_inicio'] ?? '')); ?>',
+                    '<?php echo htmlspecialchars(addslashes($_POST['hora_fin'] ?? '')); ?>'
+                );
+            });
+        <?php endif; ?>
+    <?php endif; ?>
+</script>
+
+<?php require_once __DIR__ . '/layout/footer.phtml'; ?>
