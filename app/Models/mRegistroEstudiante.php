@@ -62,7 +62,7 @@ class mRegistroEstudiante
     }
 
     /**
-     * Reutilizada para operaciones de CU3 sin agregar métodos nuevos.
+     * Reutilizada para operaciones de CU3.
      * - Guardar en BD: insertar_registro($estudiantes_id, $grupo_id)
      * - Cargar CSV:    insertar_registro(['op'=>'csv','contenido'=>string,'staging'=>array], 0)
      * - Agregar manual:insertar_registro(['op'=>'manual','staging'=>array,'nombre'=>...,'apellido_p'=>...,'apellido_m'=>...,'registro_e'=>...], 0)
